@@ -5,7 +5,7 @@ public class EnemyCtrl : MonoBehaviour
 {
     public float walkDistance = 50f;
     public float runDistance = 1.5f;
-    public float attackDistance = 10f;
+    public float minDistanceToPlayer = 1.5f; // Khoảng cách tối thiểu đến người chơi
     public float walkSpeed = 2f;
     public float runSpeed = 5f;
     public float fallbackSpeed = 4f;
@@ -43,82 +43,70 @@ public class EnemyCtrl : MonoBehaviour
     }
 
     private void FixedUpdate()
-{
-    if (health <= 0)
     {
-        StartCoroutine(FallAndDisappear());
-        return;
+        if (health <= 0)
+        {
+            StartCoroutine(FallAndDisappear());
+            return;
+        }
+
+        if (car != null)
+        {
+            float distance = Vector3.Distance(transform.position, car.position);
+
+            if (distance <= minDistanceToPlayer)
+            {
+                StopMovement();
+            }
+            else if (distance <= walkDistance)
+            {
+                Run();
+            }
+            else
+            {
+                Walk();
+            }
+
+            // Perform Raycast every second
+            if (Time.time >= nextRaycastTime)
+            {
+                nextRaycastTime = Time.time + raycastCooldown;
+                PerformRaycast();
+            }
+        }
     }
 
-    if (car != null)
+    private IEnumerator FallAndDisappear()
     {
-        float distance = Vector3.Distance(transform.position, car.position);
+        // Kích hoạt animation FallBack
+        animator.SetTrigger("FallBack");
 
-        if (distance <= 1.5f)
-        {
-            Attack();
-        }
-        else if (distance <= 40f)
-        {
-            Run();
-        }
-        else
-        {
-            Walk();
-        }
+        // Đợi 1.5 giây để kẻ địch hoàn thành animation FallBack
+        yield return new WaitForSeconds(1.5f);
 
-        // Perform Raycast every second
-        if (Time.time >= nextRaycastTime)
-        {
-            nextRaycastTime = Time.time + raycastCooldown;
-            PerformRaycast();
-        }
+        // Sau đó biến mất (deactivate)
+        gameObject.SetActive(false);
+
+        // Spawn kẻ địch mới nếu cần
+        EnemySpawner.Instance.SpawnNewEnemy();
     }
-}
-
-private IEnumerator FallAndDisappear()
-{
-    // Kích hoạt animation FallBack
-    animator.SetTrigger("FallBack");
-
-    // Đợi 1.5 giây để kẻ địch hoàn thành animation FallBack
-    yield return new WaitForSeconds(1.5f);
-
-    // Sau đó biến mất (deactivate)
-    gameObject.SetActive(false);
-
-    // Spawn kẻ địch mới nếu cần
-    EnemySpawner.Instance.SpawnNewEnemy();
-}
-
 
     private void PerformRaycast()
     {
         RaycastHit hit;
         Vector3 directionToCar = car.position - transform.position;
 
-        // Log để kiểm tra xem raycast có được thực hiện hay không
-        Debug.Log("Đang bắn Raycast về phía người chơi");
-
         // Thực hiện raycast về hướng xe (người chơi)
         if (Physics.Raycast(transform.position, directionToCar, out hit, runDistance))
         {
-            // Kiểm tra xem raycast có trúng xe không
             if (hit.collider.CompareTag("Player"))
             {
-                Debug.Log("Raycast đã trúng xe!");
-
                 // Áp dụng sát thương cho xe
                 CarController carController = hit.collider.GetComponent<CarController>();
                 if (carController != null)
                 {
-                    Debug.Log("Đang gây sát thương cho người chơi!");
                     carController.TakeDamage(damage);  // Gây sát thương cho xe
                 }
-            }
-            else
-            {
-                Debug.Log("Raycast không trúng người chơi.");
             }
         }
     }
@@ -141,6 +129,7 @@ private IEnumerator FallAndDisappear()
 
     private void Die()
     {
+        GameManager.Instance.IncrementKillCount();  // Tăng số lượng kẻ địch đã bị giết
         gameObject.SetActive(false);
         EnemySpawner.Instance.SpawnNewEnemy();
     }
@@ -155,6 +144,12 @@ private IEnumerator FallAndDisappear()
         MoveTowardsCar(runSpeed);
     }
 
+    private void StopMovement()
+    {
+        // Tạm dừng di chuyển của kẻ địch nếu đến quá gần người chơi
+        rb.velocity = Vector3.zero;
+    }
+
     private void Attack()
     {
         if (Time.time - lastAttackTime > attackCooldown)
@@ -164,24 +159,18 @@ private IEnumerator FallAndDisappear()
         }
     }
 
-    private void Fallback()
-    {
-        Vector3 direction = (transform.position - car.position).normalized;
-        transform.position += direction * fallbackSpeed * Time.fixedDeltaTime;
-    }
-
-    private void FallBack()
-    {
-        Debug.Log("Enemy is dead!");
-    }
-
     private void MoveTowardsCar(float speed)
     {
-        Vector3 direction = (car.position - transform.position).normalized;
-        transform.position = Vector3.MoveTowards(transform.position, car.position, speed * Time.fixedDeltaTime);
+        float distanceToPlayer = Vector3.Distance(transform.position, car.position);
+
+        // Chỉ di chuyển nếu khoảng cách lớn hơn khoảng cách tối thiểu
+        if (distanceToPlayer > minDistanceToPlayer)
+        {
+            Vector3 direction = (car.position - transform.position).normalized;
+            transform.position = Vector3.MoveTowards(transform.position, car.position, speed * Time.fixedDeltaTime);
+        }
     }
 
-    // Reset the enemy's health and status when it is spawned from the pool
     public void ResetEnemy()
     {
         health = 3;

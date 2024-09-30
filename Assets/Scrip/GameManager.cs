@@ -4,13 +4,15 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
-    public float thoiGianChoPhepVeDich = 30f;  // Thời gian giới hạn của trò chơi
-    public bool ketThucGame = false;  // Cờ để kiểm tra xem game đã kết thúc hay chưa
-    private static GameManager instance;  // Singleton để lưu trữ thể hiện của GameManager
-    public GameObject gameOverObject;  // Đối tượng hiển thị màn hình Game Over
-    public CarController player;  // Tham chiếu đến player (xe) để kiểm tra HP
+    public float thoiGianChoPhepVeDich = 30f;
+    public bool ketThucGame = false;
+    private static GameManager instance;
+    public GameObject gameOverObject;
+    public CarController player;
 
-    // Tạo thể hiện duy nhất (Singleton) của GameManager
+    // Thêm biến để theo dõi số kẻ địch bị giết
+    public int enemyKillCount = 0;
+
     public static GameManager Instance
     {
         get
@@ -30,69 +32,61 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        // Nếu game đã kết thúc, không làm gì cả
         if (ketThucGame) return;
 
-        // Giảm thời gian chơi
         thoiGianChoPhepVeDich -= Time.deltaTime;
 
-        // Kiểm tra nếu hết thời gian
         if (thoiGianChoPhepVeDich <= 0)
         {
             thoiGianChoPhepVeDich = 0;
             if (gameOverObject != null)
             {
-                gameOverObject.SetActive(true);  // Hiển thị màn hình Game Over
+                gameOverObject.SetActive(true);
             }
-            KetThucGame();  // Gọi hàm kết thúc game
+            KetThucGame();
         }
 
-        // Kiểm tra HP của player
         if (player != null && player.currentHP <= 0)
         {
-            Debug.Log("HP của người chơi đã về 0, sẽ hiển thị Game Over");
             if (gameOverObject != null)
             {
-                gameOverObject.SetActive(true);  // Hiển thị màn hình Game Over
+                gameOverObject.SetActive(true);
             }
-            KetThucGame();  // Gọi hàm kết thúc game
+            KetThucGame();
         }
     }
 
-    // Hàm kết thúc game
+    public void IncrementKillCount()
+    {
+        enemyKillCount++;
+        Debug.Log("Số kẻ địch đã bị giết: " + enemyKillCount);
+    }
+
     public void KetThucGame()
-{
-    ketThucGame = true;  // Đặt cờ kết thúc game
-    Debug.Log("Kết thúc game - hiển thị màn hình Game Over.");
-    
-    if (gameOverObject != null)
     {
-        gameOverObject.SetActive(true);  // Hiển thị màn hình Game Over
-        Debug.Log("gameOverObject đã được kích hoạt.");
+        ketThucGame = true;
+        if (gameOverObject != null)
+        {
+            gameOverObject.SetActive(true);
+        }
     }
-    else
-    {
-        Debug.Log("gameOverObject chưa được gán trong Inspector!");
-    }
-}
 
-
-    // Hàm để khởi động lại trò chơi nếu cần thiết
     public void RestartGame()
     {
-        ketThucGame = false;  // Đặt lại cờ kết thúc game
-        thoiGianChoPhepVeDich = 30f;  // Đặt lại thời gian chơi
+        ketThucGame = false;
+        thoiGianChoPhepVeDich = 30f;
+        enemyKillCount = 0;  // Đặt lại số lượng kẻ địch đã bị giết khi khởi động lại trò chơi
 
         if (player != null)
         {
-            player.currentHP = player.maxHP;  // Đặt lại HP của player
+            player.currentHP = player.maxHP;
         }
 
         if (gameOverObject != null)
         {
-            gameOverObject.SetActive(false);  // Ẩn màn hình Game Over
+            gameOverObject.SetActive(false);
         }
 
-        Debug.Log("Game đã được khởi động lại.");
+        Debug.Log("Trò chơi đã được khởi động lại.");
     }
 }
